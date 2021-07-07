@@ -28,6 +28,7 @@ import benchmark_cnn
 import cnn_util
 import flags
 from cnn_util import log_fn
+import os,subprocess, threading
 
 
 flags.define_flags()
@@ -55,6 +56,31 @@ def main(positional_arguments):
   bench.print_info()
   bench.run()
 
+def exec_shell(cmdstr):
+  process = subprocess.Popen(cmdstr,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  out = process.communicate()
+  stdout = out[0].decode('utf-8')
+  stderr = out[1].decode('utf-8')
+  return_code = process.returncode
+  return return_code,stdout,stderr
+
+def set_nvidia_visible_devices():
+  status,stdout,stderr = exec_shell('nvidia-smi -L')
+  if status != 0:
+    print("failed to get index and gpu uuid",stderr)
+    return
+  uuids = list()
+  for line in stdout.split("\n"):
+    if line == "":
+      continue
+    line = line.replace('(',"").replace(')',"")
+    items = line.split(" ")
+    uuids.append(items[-1])
+  if len(uuids) == 0:
+    return
+  os.environ['NVIDIA_VISIBLE_DEVICES'] = ','.join(uuids)
+  print(os.getenv('NVIDIA_VISIBLE_DEVICES'))
 
 if __name__ == '__main__':
+  set_nvidia_visible_devices()
   app.run(main)  # Raises error on invalid flags, unlike tf.app.run()
